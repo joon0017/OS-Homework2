@@ -3,15 +3,15 @@
 #include <stdbool.h>
 #include <string.h>
 
-void InputAnalysis(int argc, char* argv[], char* returnArr[3]) {
+void InputAnalysis(int argc, char* argv[], char* returnArr[4]) {
     bool receivedParam = true;
 
     if (argc < 7) {
-        printf("Usage: %s -i inputPath -m errorString -o outputPath\n", argv[0]);
+        printf("Usage: %s -i inputPath -m errorString -o outputPath programToRun\n", argv[0]);
         exit(1);
     }
 
-    for (int i = 1; i < argc; i++) {
+    for (int i = 1; i < argc-1; i++) {
         if (argv[i][0] == '-') {
             if (i + 1 >= argc) {
                 printf("Missing argument for %s parameter.\n", argv[i]);
@@ -43,13 +43,21 @@ void InputAnalysis(int argc, char* argv[], char* returnArr[3]) {
             receivedParam = false;
         }
     }
+    if (strcmp(argv[argc-1], "a.out")==0) {
+        returnArr[3] = argv[argc-1];
+    }
+    if (returnArr[3]==NULL){
+    	printf("Missing argument for %s parameter\n", argv[5]);
+    	exit(1);
+    }
 }
 
 int main(int argc, char* argv[]) {
-    char* inputs[3] = { NULL, NULL, NULL };
+    char* inputs[4] = { NULL, NULL, NULL, NULL };
+    printf("argc:%d\n",argc);
     InputAnalysis(argc, argv, inputs);
 
-    printf("Input path: %s\nError String: %s\nOutput path: %s\n", inputs[0], inputs[1], inputs[2]);
+    printf("Input path: %s\nError String: %s\nOutput path: %s\nProgram to be executed: %s\n", inputs[0], inputs[1], inputs[2], inputs[3]);
 
     return 0;
 }
