@@ -3,6 +3,18 @@
 #include <stdbool.h>
 #include <string.h>
 
+
+char* Reduce(char* t){
+    int s = strlen(t) - 1;
+
+    while (s > 0){
+        char* temp = (char*)malloc(sizeof(char) * s);
+        
+    }
+
+
+}
+
 void InputAnalysis(int argc, char* argv[], char* returnArr[4]) {
     bool receivedParam = true;
 
