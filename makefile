@@ -16,5 +16,5 @@ test: test.o
 	$(CC) $(CFLAGS) -o test test.o
 
 clean:
-	rm -f *.o cimin test
+	rm -f *.o *.exe cimin test
 
