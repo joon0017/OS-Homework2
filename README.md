@@ -14,7 +14,6 @@ This is the repository for HW2 of Operating System class.
 - 21900699
 
 ---
----
 # Usage
 
 clone this repository using:
