@@ -38,12 +38,12 @@ bool Search(char checkfor[], char* inpString, int lng) {
         }
     }
     if(found && lng >= 1){
+        if (lng == 1) return true;
         char D[lng-1];
         for (int i = 0; i < lng-1; i++)
         {
             D[i] = checkfor[i+1];
         }
-        if (lng == 1) return true;
         return Search(D, nextSearch,lng-1);
     }
     else{
