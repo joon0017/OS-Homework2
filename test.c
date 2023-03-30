@@ -12,23 +12,18 @@ int main(int argc, char* argv[]) {
     printf("looking for: \"%s\" in: %s \n", argv[1], argv[2]);
 
     if(Search(a, argv[2],strlen(argv[1]))){
-        printf("Found");
+        printf("Found\n");
     }
     else{
-        printf("Not Found");
+        printf("Not Found\n");
     }
 }
 
 bool Search(char checkfor[], char* inpString, int lng) {
     char C = checkfor[0];
-    char temp[strlen(inpString)];
     char nextSearch[strlen(inpString)];
     int j = 0;
 
-    // for (int i = 0; i < strlen(inpString); i++)
-    // {
-    //     temp[i] = inpString[i];
-    // }
     bool found = false;
 
     for (int i = 0; i < strlen(inpString); i++)
@@ -42,7 +37,7 @@ bool Search(char checkfor[], char* inpString, int lng) {
             found = true;
         }
     }
-    if(found && strlen(checkfor) > 1){
+    if(found && lng >= 1){
         char D[lng-1];
         for (int i = 0; i < lng-1; i++)
         {
