@@ -1,8 +1,12 @@
 #include <stdio.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <error.h>
 
+//three pipes needed => pipe[0]:standard input, pipe[1]:standard output, pipe[2]:standard error
+int pipes[3];
 
 char* Reduce(char* t){
     int s = strlen(t) - 1;
@@ -64,11 +68,28 @@ void InputAnalysis(int argc, char* argv[], char* returnArr[4]) {
 }
 
 int main(int argc, char* argv[]) {
+    pid_t child_pid;
+
+    if(pipe(pipes)!=0){
+    	perror("Error(pipe generation)");
+	exit(1);
+    }
+    printf("reading pipe: %d, writing pipe: %d, error pipe: %d\n",pipes[0],pipes[1],pipes[2]);
+
     char* inputs[4] = { NULL, NULL, NULL, NULL };
-    printf("argc:%d\n",argc);
+    printf("argc: %d\n",argc);
     InputAnalysis(argc, argv, inputs);
 
     printf("Input path: %s\nError String: %s\nOutput path: %s\nProgram to be executed: %s\n", inputs[0], inputs[1], inputs[2], inputs[3]);
 
+    child_pid=fork();
+    if(child_pid<0){
+    	perror("Fork Error");
+	exit(1);
+    }
+    if(child_pid==0){  //child process
+    	
+    }
+    wait(0x0);	  //wait until the child process is done
     return 0;
 }
