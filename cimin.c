@@ -16,7 +16,8 @@ char* Reduce(char* t){
 }
 
 void InputAnalysis(int argc, char* argv[], char* returnArr[4]) {
-    bool receivedParam = true;
+    bool receivedParam = false;
+    bool receivedProgram = false;
 
     if (argc < 7) {
         printf("Usage: %s -i inputPath -m errorString -o outputPath programToRun\n", argv[0]);
@@ -25,6 +26,7 @@ void InputAnalysis(int argc, char* argv[], char* returnArr[4]) {
 
     for (int i = 1; i < argc-1; i++) {
         if (argv[i][0] == '-') {
+            receivedParam = true;
             if (i + 1 >= argc) {
                 printf("Missing argument for %s parameter.\n", argv[i]);
                 exit(1);
@@ -44,22 +46,19 @@ void InputAnalysis(int argc, char* argv[], char* returnArr[4]) {
                 printf("Invalid parameter: %s\n", argv[i]);
                 exit(1);
             }
-            receivedParam = true;
+            i++;
         }
         else {
             // Check if the current argument is an argument following a parameter
-            if (!receivedParam) {
-                printf("Invalid argument: %s\n", argv[i]);
-                exit(1);
+            if (!receivedProgram) {
+                returnArr[3] = argv[i];
+                receivedProgram = true;
             }
             receivedParam = false;
         }
     }
-    if (strcmp(argv[argc-1], "a.out")==0) {
-        returnArr[3] = argv[argc-1];
-    }
     if (returnArr[3]==NULL){
-    	printf("Missing argument for %s parameter\n", argv[5]);
+    	printf("Missing argument for executable program parameter\n");
     	exit(1);
     }
 }
