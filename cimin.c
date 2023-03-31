@@ -24,7 +24,7 @@ void InputAnalysis(int argc, char* argv[], char* returnArr[4]) {
         exit(1);
     }
 
-    for (int i = 1; i < argc-1; i++) {
+    for (int i = 1; i < argc; i++) {
         if (argv[i][0] == '-') {
             receivedParam = true;
             if (i + 1 >= argc) {
