@@ -50,3 +50,7 @@ This is the debug tool we used to simplify the building process of cimin. The ba
 ```
 ./test [Error String] [String]
 ```
+Arguments inside [] are necessary for the program to run without troubles.
+
+- [Error String]: The sequence of characters to look for
+- [String]: The string where the program will look for the error string.
