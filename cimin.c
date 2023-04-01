@@ -7,8 +7,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-//three pipes needed => pipe[0]:standard input, pipe[1]:standard output, pipe[2]:standard error
-int pipes[3];
+//two pipes needed => pipe[0]:standard input, pipe[1]:standard output
+int pipes[2];
 
 char* Reduce(char* t){
     int s = strlen(t) - 1;
@@ -76,7 +76,7 @@ int main(int argc, char* argv[]) {
     	perror("Error(pipe generation)");
 	exit(1);
     }
-    printf("reading pipe: %d, writing pipe: %d, error pipe: %d\n",pipes[0],pipes[1],pipes[2]);
+    printf("reading pipe: %d, writing pipe: %d\n",pipes[0],pipes[1]);
 
     char* inputs[4] = { NULL, NULL, NULL, NULL };
     printf("argc: %d\n",argc);
@@ -84,29 +84,31 @@ int main(int argc, char* argv[]) {
 
     printf("Input path: %s\nError String: %s\nOutput path: %s\nProgram to be executed: %s\n", inputs[0], inputs[1], inputs[2], inputs[3]);
     
-    char buf1[64];
-    //char buf2[32];
+    char buf[1024];
     ssize_t s;
-    
+   
     child_pid=fork();
     if(child_pid<0){
     	perror("Fork Error");
 	exit(1);
     }
-    if(child_pid==0){  		//child process
-    	dup2(pipes[1],1); 	//standard output -> writing pipe
-	dup2(pipes[2],2);	//standard error -> error pipe
-	close(pipes[0]);	//close reading pipe
-	execl("./test","test","h","elloh",NULL);	//executing test in child process
+    if(child_pid==0){  			//child process
+    	dup2(pipes[0],STDIN_FILENO); 	//standard input -> reading pipe
+	close(pipes[1]);		//close writing pipe
+	execl("./jsondump","jsondump","<","crash.json",NULL);	//executing jsondump in child process
+	perror("execl failed");
+	exit(1);
     }
-    wait(0x0);			//wait until the child process is done
-    close(pipes[1]);
-    close(pipes[2]); 		//close writing&reading pipe
+    else{				//parent process
+    	//wait(0x0);			//wait until the child process is done
+    	close(pipes[0]); 		//close reading pipe
 
-    printf("1\n");
-    s=read(pipes[0],buf1,64);
-    buf1[s+1]=0x0;
-    printf(">%s\n",buf1);
+    	while(s=read(pipes[1],buf,1023)>0){
+    	    buf[s]=0x0;
+    	    printf("stderr> %s\n",buf);
+	//write(pipes[1],input,4096);
+	}
+    }
 
     return 0;
 
