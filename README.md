@@ -1,4 +1,4 @@
-# Operating System Homework 2 Girhub Repository
+# Operating System Homework 2 Github Repository
 
 This is the repository for HW2 of Operating System class.
 
