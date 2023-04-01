@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <string.h>
 #include <error.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 //three pipes needed => pipe[0]:standard input, pipe[1]:standard output, pipe[2]:standard error
 int pipes[3];
@@ -81,15 +83,31 @@ int main(int argc, char* argv[]) {
     InputAnalysis(argc, argv, inputs);
 
     printf("Input path: %s\nError String: %s\nOutput path: %s\nProgram to be executed: %s\n", inputs[0], inputs[1], inputs[2], inputs[3]);
-
+    
+    char buf1[64];
+    //char buf2[32];
+    ssize_t s;
+    
     child_pid=fork();
     if(child_pid<0){
     	perror("Fork Error");
 	exit(1);
     }
-    if(child_pid==0){  //child process
-    	
+    if(child_pid==0){  		//child process
+    	dup2(pipes[1],1); 	//standard output -> writing pipe
+	dup2(pipes[2],2);	//standard error -> error pipe
+	close(pipes[0]);	//close reading pipe
+	execl("./test","test","h","elloh",NULL);	//executing test in child process
     }
-    wait(0x0);	  //wait until the child process is done
+    wait(0x0);			//wait until the child process is done
+    close(pipes[1]);
+    close(pipes[2]); 		//close writing&reading pipe
+
+    printf("1\n");
+    s=read(pipes[0],buf1,64);
+    buf1[s+1]=0x0;
+    printf(">%s\n",buf1);
+
     return 0;
+
 }
