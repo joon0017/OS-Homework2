@@ -6,6 +6,7 @@
 #include <error.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <signal.h>
 
 //two pipes needed => pipe[0]:standard input, pipe[1]:standard output
 int pipes[2];
@@ -69,8 +70,20 @@ void InputAnalysis(int argc, char* argv[], char* returnArr[4]) {
     }
 }
 
+void timeout(int sig) {	//when SIGALRM(timeout) happens
+    if(sig==SIGALRM) puts("Time out!\n");
+    exit(0);
+}
+void terminate(int sig) { //when SIGINT(control+c) happens
+    if(sig==SIGINT) printf("\nCTRL+C is pressed!\nexit process..\n");
+    exit(0);
+}
+
 int main(int argc, char* argv[]) {
     pid_t child_pid;
+
+    signal(SIGINT,terminate);	//when SIGINT, calls terminate to exit
+    signal(SIGALRM,timeout);	//when SIGALRM, calls timeout to exit
 
     if(pipe(pipes)!=0){
     	perror("Error(pipe generation)");
@@ -93,17 +106,20 @@ int main(int argc, char* argv[]) {
 	exit(1);
     }
     if(child_pid==0){  			//child process
-    	dup2(pipes[0],STDIN_FILENO); 	//standard input -> reading pipe
-	close(pipes[1]);		//close writing pipe
+	
+	close(pipes[0]);                //close reading pipe
+    	dup2(pipes[1],STDERR_FILENO); 	//standard error -> writing pipe
+
 	execl("./jsondump","jsondump","<","crash.json",NULL);	//executing jsondump in child process
 	perror("execl failed");
 	exit(1);
     }
     else{				//parent process
-    	//wait(0x0);			//wait until the child process is done
-    	close(pipes[0]); 		//close reading pipe
-
-    	while(s=read(pipes[1],buf,1023)>0){
+    	wait(0x0);			//wait until the child process is done
+    	close(pipes[1]); 		//close writing pipe
+	
+	alarm(3);
+    	while(s=read(pipes[0],buf,1023)>0){
     	    buf[s]=0x0;
     	    printf("stderr> %s\n",buf);
 	//write(pipes[1],input,4096);
