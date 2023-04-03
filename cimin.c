@@ -78,7 +78,7 @@ void InputAnalysis(int argc, int paramlen, char* argv[], char* returnArr[4], cha
             if (!receivedProgram) {
                 returnArr[3] = argv[i];
 		for(int k=0; k<paramlen; k++){
-		    tarArg[k]=argv[i+k+1];
+		    tarArg[k]=argv[i+k+1]; 	//storing parameters for target program
 		}
 		i+=3;
                 receivedProgram = true;
@@ -129,8 +129,20 @@ int main(int argc, char* argv[]) {
 
     printf("Input path: %s\nError String: %s\nOutput path: %s\nProgram to be executed: %s\n", inputs[0], inputs[1], inputs[2], inputs[3]);
     
-    char buf[1024];
+    char crashInput[4097];
+    FILE* crash=fopen(inputs[0],"r");
+    if(crash==NULL){
+	printf("No file; exiting..\n");
+	exit(1);
+    }
+    fgets(crashInput,4096,crash);
+    crashInput[4096]='\0';
+    printf("crashing input: %c\n",crashInput[0]);
+
+    printf("check if input is printed\n");
+
     ssize_t s;
+    char buf[1024];
    
     child_pid=fork();
     if(child_pid<0){
