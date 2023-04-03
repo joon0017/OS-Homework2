@@ -6,6 +6,7 @@
 #include <error.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/time.h>
 #include <signal.h>
 
 //two pipes needed => pipe[0]:standard input, pipe[1]:standard output
@@ -88,7 +89,7 @@ void InputAnalysis(int argc, char* argv[], char* returnArr[4]) {
 }
 
 void timeout(int sig) {	//when SIGALRM(timeout) happens
-    if(sig==SIGALRM) puts("Time out!\n");
+    if(sig==SIGALRM) puts("Time out!");
     exit(0);
 }
 void terminate(int sig) { //when SIGINT(control+c) happens
@@ -101,6 +102,7 @@ int main(int argc, char* argv[]) {
 
     signal(SIGINT,terminate);	//when SIGINT, calls terminate to exit
     signal(SIGALRM,timeout);	//when SIGALRM, calls timeout to exit
+    alarm(3);
 
     if(pipe(pipes)!=0){
     	perror("Error(pipe generation)");
@@ -135,7 +137,6 @@ int main(int argc, char* argv[]) {
     	wait(0x0);			//wait until the child process is done
     	close(pipes[1]); 		//close writing pipe
 	
-	alarm(3);
     	while(s=read(pipes[0],buf,1023)>0){
     	    buf[s]=0x0;
     	    printf("stderr> %s\n",buf);
