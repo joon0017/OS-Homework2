@@ -40,7 +40,7 @@ char* Reduce(char* t){
     }
 }
 
-void InputAnalysis(int argc, char* argv[], char* returnArr[4]) {
+void InputAnalysis(int argc, int paramlen, char* argv[], char* returnArr[4], char* tarArg[paramlen]) {
     bool receivedParam = false;
     bool receivedProgram = false;
 
@@ -77,6 +77,10 @@ void InputAnalysis(int argc, char* argv[], char* returnArr[4]) {
             // Check if the current argument is an argument following a parameter
             if (!receivedProgram) {
                 returnArr[3] = argv[i];
+		for(int k=0; k<paramlen; k++){
+		    tarArg[k]=argv[i+k+1];
+		}
+		i+=3;
                 receivedProgram = true;
             }
             receivedParam = false;
@@ -111,8 +115,17 @@ int main(int argc, char* argv[]) {
     printf("reading pipe: %d, writing pipe: %d\n",pipes[0],pipes[1]);
 
     char* inputs[4] = { NULL, NULL, NULL, NULL };
-    printf("argc: %d\n",argc);
-    InputAnalysis(argc, argv, inputs);
+    int paramlen=argc-8;
+    char* tarArg[paramlen];
+
+    printf("argc: %d, parameter length: %d\n",argc,paramlen);
+    InputAnalysis(argc, paramlen, argv, inputs, tarArg);
+
+    printf("parameters of target program: ");
+    for(int i=0;i<paramlen;i++){
+    	printf("%s, ",tarArg[i]);
+    }
+    printf("\n");
 
     printf("Input path: %s\nError String: %s\nOutput path: %s\nProgram to be executed: %s\n", inputs[0], inputs[1], inputs[2], inputs[3]);
     
