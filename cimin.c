@@ -13,13 +13,30 @@ int pipes[2];
 
 char* Reduce(char* t){
     int s = strlen(t) - 1;
+    char* head;
+    char* mid;
+    char* tail;
 
-    while (s > 0){
-        char* temp = (char*)malloc(sizeof(char) * s);
-        
+    while(s > 0){
+        for(int i = 0; i < strlen(t) - s ;i++){
+            //allocate memory for each part
+            head = (char*)malloc(sizeof(char)*i+1);
+            mid = (char*)malloc(sizeof(char)*s+1);
+            tail = (char*)malloc(sizeof(char)*(strlen(t)-i-s)+1);
+
+            //copy the substrings to each part
+            strncpy(head,t,i);
+            strncpy(mid,t+i,s);
+            strncpy(tail,t+i+s,strlen(t)-i-s);
+
+            //foolproof method to make sure the strings are null terminated
+            head[i] = '\0';
+            mid[s] = '\0';
+            tail[strlen(t)-i-s] = '\0';
+
+        }
+        s--;
     }
-
-
 }
 
 void InputAnalysis(int argc, char* argv[], char* returnArr[4]) {
