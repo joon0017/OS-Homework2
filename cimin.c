@@ -129,15 +129,27 @@ int main(int argc, char* argv[]) {
 
     printf("Input path: %s\nError String: %s\nOutput path: %s\nProgram to be executed: %s\n", inputs[0], inputs[1], inputs[2], inputs[3]);
     
-    char crashInput[4097];
+    char crashInput[4097];	//array for reading crashing input
+    int crlen;			//length of crahsing input
     FILE* crash=fopen(inputs[0],"r");
     if(crash==NULL){
-	printf("No file; exiting..\n");
+	perror("No file; exiting..\n");
 	exit(1);
     }
-    fgets(crashInput,4096,crash);
-    crashInput[4096]='\0';
-    printf("crashing input: %c\n",crashInput[0]);
+    crlen=fread(crashInput,sizeof(char),4096,crash);
+    
+    if(crlen!=0){	//fread successful
+    	printf("length of crashing input: %d\n", crlen);
+	printf("content: %s\n", crashInput);
+	fclose(crash);
+    }
+    else{		//fread failed
+	if(ferror(crash)) perror("Error reading crashing input file\n");
+	else if(feof(crash)) perror("EOF found\n");
+    }
+
+    crashInput[crlen]='\0';
+    printf("crashing input: %s\n",crashInput);
 
     printf("check if input is printed\n");
 
