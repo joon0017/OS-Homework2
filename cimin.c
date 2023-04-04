@@ -12,7 +12,7 @@
 //two pipes needed => pipe[0]:standard input, pipe[1]:standard output
 int pipes[2];
 
-void ExecutePrgm(char* t, char* prgm){
+bool ExecutePrgm(char* t, char* prgm){
     pid_t child=fork();
     if(child<0) {
         perror("Error(fork)");
@@ -195,8 +195,8 @@ int main(int argc, char* argv[]) {
     ssize_t s;
     char buf[1024];
 
-    Reduce(crashInput,inputs[3]);
-   
+    char* resultStr = Reduce(crashInput,inputs[3]);
+    printf("\n\n******Result******\n%s\n\n******************",resultStr);
     // child_pid=fork();
     // if(child_pid<0){
     // 	perror("Fork Error");
