@@ -30,9 +30,9 @@ bool ExecutePrgm(char* t, char* prgm){
         wait(&status);
         if(WEXITSTATUS(status) == 33){
             //found the error string (crashes)
-            return true;
+            return false;
         }
-        else return false;
+        else return true;
     }
 }
 
@@ -81,7 +81,7 @@ char* Reduce(char* t, char* prgm){
         }
         s--;
     }
-    printf("\nFinished reducing. Error string is: %s\n")
+    printf("\nFinished reducing. Error string is: %s\n",t);
     return t;
 }
 
