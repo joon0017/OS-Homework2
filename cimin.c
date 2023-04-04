@@ -166,7 +166,7 @@ int main(int argc, char* argv[]) {
 	close(pipes[0]);                //close reading pipe
     	dup2(pipes[1],STDERR_FILENO); 	//standard error -> writing pipe
 
-	execl("./jsondump","jsondump","<","crash.json",NULL);	//executing jsondump in child process
+	execvp(inputs[3],tarArg);	//executing jsondump in child process
 	perror("execl failed");
 	exit(1);
     }
@@ -174,9 +174,11 @@ int main(int argc, char* argv[]) {
     	wait(0x0);			//wait until the child process is done
     	close(pipes[1]); 		//close writing pipe
 	
-    	while(s=read(pipes[0],buf,1023)>0){
-    	    buf[s]=0x0;
+    	while(1){
+    	    s=read(pipes[0],buf,1023);
+	    buf[s+1]=0x0;
     	    printf("stderr> %s\n",buf);
+	    sleep(5);
 	//write(pipes[1],input,4096);
 	}
     }
