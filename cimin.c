@@ -127,7 +127,7 @@ int main(int argc, char* argv[]) {
     for(int i=0;i<paramlen;i++){
     	printf("%s, ",tarArg[i]);
     }
-    printf("%s\n",targetArg[0]]);
+    printf("%s\n",targetArg[0]);
 
     printf("Input path: %s\nError String: %s\nOutput path: %s\nProgram to be executed: %s\n", inputs[0], inputs[1], inputs[2], inputs[3]);
      
