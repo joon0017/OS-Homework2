@@ -60,7 +60,10 @@ char* Reduce(char* t, char* prgm){
             
             //if the string with the problem is found, reduce it further
             //(crashes)
-            if(ExecutePrgm(head,prgm)) return Reduce(head,prgm);	
+            if(ExecutePrgm(head,prgm)) {
+                printf("\nfound error string: %s...\nNow reducing further",head);
+                return Reduce(head,prgm);	
+            }
 
         }
         for(int i = 0; i < strlen(t) - s - 1 ;i++){
@@ -70,11 +73,15 @@ char* Reduce(char* t, char* prgm){
             mid[s] = '\0';
 
             //try to find the error string in the middle part
-            if(ExecutePrgm(mid,prgm)) return Reduce(mid,prgm);
+            if(ExecutePrgm(mid,prgm)) 
+            {
+                printf("\nfound error string: %s...\nNow reducing further",mid);
+                return Reduce(mid,prgm);
+            }
         }
         s--;
     }
-
+    printf("\nFinished reducing. Error string is: %s\n")
     return t;
 }
 
