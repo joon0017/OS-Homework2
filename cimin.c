@@ -12,6 +12,8 @@
 //two pipes needed => pipe[0]:standard input, pipe[1]:standard output
 int pipes[2];
 
+void ExecutePrgm()
+
 char* Reduce(char* t){
     int s = strlen(t) - 1;
     char* head;
@@ -125,27 +127,28 @@ int main(int argc, char* argv[]) {
     for(int i=0;i<paramlen;i++){
     	printf("%s, ",tarArg[i]);
     }
-    printf("\n");
+    printf("%s\n",targetArg[0]]);
 
     printf("Input path: %s\nError String: %s\nOutput path: %s\nProgram to be executed: %s\n", inputs[0], inputs[1], inputs[2], inputs[3]);
-    
+     
+     /* Reading Input File */
     char crashInput[4097];	//array for reading crashing input
     int crlen;			//length of crahsing input
     FILE* crash=fopen(inputs[0],"r");
     if(crash==NULL){
-	perror("No file; exiting..\n");
-	exit(1);
+        perror("No file; exiting..\n");
+        exit(1);
     }
     crlen=fread(crashInput,sizeof(char),4096,crash);
     
     if(crlen!=0){	//fread successful
     	printf("length of crashing input: %d\n", crlen);
-	printf("content: %s\n", crashInput);
-	fclose(crash);
+        printf("content: %s\n", crashInput);
+        fclose(crash);
     }
     else{		//fread failed
-	if(ferror(crash)) perror("Error reading crashing input file\n");
-	else if(feof(crash)) perror("EOF found\n");
+        if(ferror(crash)) perror("Error reading crashing input file\n");
+        else if(feof(crash)) perror("EOF found\n");
     }
 
     crashInput[crlen]='\0';
@@ -159,16 +162,16 @@ int main(int argc, char* argv[]) {
     child_pid=fork();
     if(child_pid<0){
     	perror("Fork Error");
-	exit(1);
+        exit(1);
     }
     if(child_pid==0){  			//child process
 	
-	close(pipes[0]);                //close reading pipe
+        close(pipes[0]);                //close reading pipe
     	dup2(pipes[1],STDERR_FILENO); 	//standard error -> writing pipe
 
-	execvp(inputs[3],tarArg);	//executing jsondump in child process
-	perror("execl failed");
-	exit(1);
+        execvp(inputs[3],tarArg);	//executing jsondump in child process
+        perror("execl failed");
+        exit(1);
     }
     else{				//parent process
     	wait(0x0);			//wait until the child process is done
