@@ -32,9 +32,9 @@ bool ExecutePrgm(char* t, char* prgm){
         wait(&status);
         if(WEXITSTATUS(status) == 33){
             //found the error string (crashes)
-            return false;
+            return true;
         }
-        else return true;
+        else return false;
     }
 }
 
