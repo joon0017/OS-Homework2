@@ -13,9 +13,11 @@ int main(int argc, char* argv[]) {
 
     if(Search(a, argv[2],strlen(argv[1]))){
         printf("Found\n");
+        exit(EXIT_SUCCESS);
     }
     else{
         printf("Not Found\n");
+        exit(EXIT_FAILURE);
     }
 }
 

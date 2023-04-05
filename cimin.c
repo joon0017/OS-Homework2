@@ -14,32 +14,77 @@ int pipes[2];
 int crin[2];
 //pipe[0]:standard input, pipe[1]:standard output
 
-char* Reduce(char* t){
+bool ExecutePrgm(char* t, char* prgm){
+    pid_t child=fork();
+    if(child<0) {
+        perror("Error(fork)");
+        exit(1);
+    } else if (child == 0){
+        //child process
+        close(pipes[0]);	//close reading pipe
+        dup2(pipes[1],1);	//redirect stdout to writing pipe
+        close(pipes[1]);	//close writing pipe
+        execvp(prgm,t); //run program
+        exit(33);
+    } else{
+        //parent process
+        int status;
+        wait(&status);
+        if(WEXITSTATUS(status) == 33){
+            //found the error string (crashes)
+            return false;
+        }
+        else return true;
+    }
+}
+
+char* Reduce(char* t, char* prgm){
     int s = strlen(t) - 1;
     char* head;
     char* mid;
     char* tail;
 
     while(s > 0){
-        for(int i = 0; i < strlen(t) - s ;i++){
+        for(int i = 0; i < strlen(t) - s - 1;i++){
             //allocate memory for each part
             head = (char*)malloc(sizeof(char)*i+1);
-            mid = (char*)malloc(sizeof(char)*s+1);
             tail = (char*)malloc(sizeof(char)*(strlen(t)-i-s)+1);
-
+            
             //copy the substrings to each part
             strncpy(head,t,i);
-            strncpy(mid,t+i,s);
             strncpy(tail,t+i+s,strlen(t)-i-s);
 
             //foolproof method to make sure the strings are null terminated
             head[i] = '\0';
-            mid[s] = '\0';
             tail[strlen(t)-i-s] = '\0';
 
+            strcat(head,tail);	//concatenate head and tail
+            
+            //if the string with the problem is found, reduce it further
+            //(crashes)
+            if(ExecutePrgm(head,prgm)) {
+                printf("\nfound error string: %s...\nNow reducing further",head);
+                return Reduce(head,prgm);	
+            }
+
+        }
+        for(int i = 0; i < strlen(t) - s - 1 ;i++){
+            //find middle part
+            mid = (char*)malloc(sizeof(char)*s+1);
+            strncpy(mid,t+i,s);
+            mid[s] = '\0';
+
+            //try to find the error string in the middle part
+            if(ExecutePrgm(mid,prgm)) 
+            {
+                printf("\nfound error string: %s...\nNow reducing further",mid);
+                return Reduce(mid,prgm);
+            }
         }
         s--;
     }
+    printf("\nFinished reducing. Error string is: %s\n",t);
+    return t;
 }
 
 void InputAnalysis(int argc, int paramlen, char* argv[], char* returnArr[4], char* tarArg[paramlen]) {
@@ -137,24 +182,25 @@ int main(int argc, char* argv[]) {
     printf("\n");
 
     printf("Input path: %s\nError String: %s\nOutput path: %s\nProgram to be executed: %s\n", inputs[0], inputs[1], inputs[2], inputs[3]);
-    
+     
+     /* Reading Input File */
     char crashInput[4097];	//array for reading crashing input
     int crlen;			//length of crahsing input
     FILE* crash=fopen(inputs[0],"r");
     if(crash==NULL){
-	perror("No file; exiting..\n");
-	exit(1);
+        perror("No file; exiting..\n");
+        exit(1);
     }
     crlen=fread(crashInput,sizeof(char),4096,crash);
     
     if(crlen!=0){	//fread successful
     	printf("length of crashing input: %d\n", crlen);
-	printf("content: %s\n", crashInput);
-	fclose(crash);
+        printf("content: %s\n", crashInput);
+        fclose(crash);
     }
     else{		//fread failed
-	if(ferror(crash)) perror("Error reading crashing input file\n");
-	else if(feof(crash)) perror("EOF found\n");
+        if(ferror(crash)) perror("Error reading crashing input file\n");
+        else if(feof(crash)) perror("EOF found\n");
     }
 
     crashInput[crlen]='\0';
@@ -163,17 +209,13 @@ int main(int argc, char* argv[]) {
 
     ssize_t s;
     char buf[1024];
-   
+
     child_pid=fork();
     if(child_pid<0){
     	perror("Fork Error");
-	exit(1);
+        exit(1);
     }
     if(child_pid==0){  			//child process
-	
-	close(pipes[0]);                //close reading pipe
-    	dup2(pipes[1],STDERR_FILENO); 	//standard error -> writing pipe
-
 	close(crin[1]);			//close writing pipe so it can read crashing input form pipe
 	dup2(crin[0],STDIN_FILENO);	//standard input -> reading pipe
 	
