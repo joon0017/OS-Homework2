@@ -9,8 +9,10 @@
 #include <sys/time.h>
 #include <signal.h>
 
-//two pipes needed => pipe[0]:standard input, pipe[1]:standard output
+//two pipes are needed => one for stderr, one for passing crashing input to the target program
 int pipes[2];
+int crin[2];
+//pipe[0]:standard input, pipe[1]:standard output
 
 char* Reduce(char* t){
     int s = strlen(t) - 1;
@@ -81,6 +83,7 @@ void InputAnalysis(int argc, int paramlen, char* argv[], char* returnArr[4], cha
 		    tarArg[k]=argv[i+k+1]; 	//storing parameters for target program
 		}
 		i+=3;
+		tarArg[paramlen]=NULL;
                 receivedProgram = true;
             }
             receivedParam = false;
@@ -112,11 +115,17 @@ int main(int argc, char* argv[]) {
     	perror("Error(pipe generation)");
 	exit(1);
     }
-    printf("reading pipe: %d, writing pipe: %d\n",pipes[0],pipes[1]);
+    printf("1st pipe(for stderr) => reading pipe: %d, writing pipe: %d\n",pipes[0],pipes[1]);
+
+    if(pipe(crin)!=0){
+	perror("Error(pipe generation)");
+	exit(1);
+    }
+    printf("2nd pipe(for crashing input) => reading pipe: %d, writing pipe: %d\n",crin[0],crin[1]);
 
     char* inputs[4] = { NULL, NULL, NULL, NULL };
     int paramlen=argc-8;
-    char* tarArg[paramlen];
+    char* tarArg[paramlen+1];
 
     printf("argc: %d, parameter length: %d\n",argc,paramlen);
     InputAnalysis(argc, paramlen, argv, inputs, tarArg);
@@ -149,7 +158,6 @@ int main(int argc, char* argv[]) {
     }
 
     crashInput[crlen]='\0';
-    printf("crashing input: %s\n",crashInput);
 
     printf("check if input is printed\n");
 
@@ -166,23 +174,33 @@ int main(int argc, char* argv[]) {
 	close(pipes[0]);                //close reading pipe
     	dup2(pipes[1],STDERR_FILENO); 	//standard error -> writing pipe
 
-	execvp(inputs[3],tarArg);	//executing jsondump in child process
-	perror("execl failed");
+	close(crin[1]);			//close writing pipe so it can read crashing input form pipe
+	dup2(crin[0],STDIN_FILENO);	//standard input -> reading pipe
+	
+	execv(inputs[3], tarArg);	//executing jsondump in child process
+	perror("execvp failed");
 	exit(1);
     }
     else{				//parent process
-    	wait(0x0);			//wait until the child process is done
     	close(pipes[1]); 		//close writing pipe
+	close(crin[0]);			//close reading pipe to write crashing input to pipe
+
+	int check=write(crin[1],crashInput,crlen+1);	//write crashing input to writing pipe of crin
+	if(check!=crlen+1) perror("write malfunctioning");
+	close(crin[1]);				//since writing to crin is done, close writing pipe
 	
-    	while(1){
+	int sum=0;
+    	while(sum<check){
     	    s=read(pipes[0],buf,1023);
+	    sum+=s;
 	    buf[s+1]=0x0;
-    	    printf("stderr> %s\n",buf);
-	    sleep(5);
-	//write(pipes[1],input,4096);
+    	    printf("stderr> %s",buf);
 	}
+
+	wait(0x0);			//wait until the child process is done
     }
 
+   
     return 0;
 
 }
