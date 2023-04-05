@@ -6,9 +6,13 @@
 #include <error.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/time.h>
+#include <signal.h>
 
-//three pipes needed => pipe[0]:standard input, pipe[1]:standard output, pipe[2]:standard error
-int pipes[3];
+//two pipes are needed => one for stderr, one for passing crashing input to the target program
+int pipes[2];
+int crin[2];
+//pipe[0]:standard input, pipe[1]:standard output
 
 char* Reduce(char* t){
     int s = strlen(t) - 1;
@@ -38,7 +42,7 @@ char* Reduce(char* t){
     }
 }
 
-void InputAnalysis(int argc, char* argv[], char* returnArr[4]) {
+void InputAnalysis(int argc, int paramlen, char* argv[], char* returnArr[4], char* tarArg[paramlen]) {
     bool receivedParam = false;
     bool receivedProgram = false;
 
@@ -75,6 +79,11 @@ void InputAnalysis(int argc, char* argv[], char* returnArr[4]) {
             // Check if the current argument is an argument following a parameter
             if (!receivedProgram) {
                 returnArr[3] = argv[i];
+		for(int k=0; k<paramlen; k++){
+		    tarArg[k]=argv[i+k+1]; 	//storing parameters for target program
+		}
+		i+=3;
+		tarArg[paramlen]=NULL;
                 receivedProgram = true;
             }
             receivedParam = false;
@@ -86,45 +95,112 @@ void InputAnalysis(int argc, char* argv[], char* returnArr[4]) {
     }
 }
 
+void timeout(int sig) {	//when SIGALRM(timeout) happens
+    if(sig==SIGALRM) puts("Time out!");
+    exit(0);
+}
+void terminate(int sig) { //when SIGINT(control+c) happens
+    if(sig==SIGINT) printf("\nCTRL+C is pressed!\nexit process..\n");
+    exit(0);
+}
+
 int main(int argc, char* argv[]) {
     pid_t child_pid;
+
+    signal(SIGINT,terminate);	//when SIGINT, calls terminate to exit
+    signal(SIGALRM,timeout);	//when SIGALRM, calls timeout to exit
+    alarm(3);
 
     if(pipe(pipes)!=0){
     	perror("Error(pipe generation)");
 	exit(1);
     }
-    printf("reading pipe: %d, writing pipe: %d, error pipe: %d\n",pipes[0],pipes[1],pipes[2]);
+    printf("1st pipe(for stderr) => reading pipe: %d, writing pipe: %d\n",pipes[0],pipes[1]);
+
+    if(pipe(crin)!=0){
+	perror("Error(pipe generation)");
+	exit(1);
+    }
+    printf("2nd pipe(for crashing input) => reading pipe: %d, writing pipe: %d\n",crin[0],crin[1]);
 
     char* inputs[4] = { NULL, NULL, NULL, NULL };
-    printf("argc: %d\n",argc);
-    InputAnalysis(argc, argv, inputs);
+    int paramlen=argc-8;
+    char* tarArg[paramlen+1];
+
+    printf("argc: %d, parameter length: %d\n",argc,paramlen);
+    InputAnalysis(argc, paramlen, argv, inputs, tarArg);
+
+    printf("parameters of target program: ");
+    for(int i=0;i<paramlen;i++){
+    	printf("%s, ",tarArg[i]);
+    }
+    printf("\n");
 
     printf("Input path: %s\nError String: %s\nOutput path: %s\nProgram to be executed: %s\n", inputs[0], inputs[1], inputs[2], inputs[3]);
     
-    char buf1[64];
-    //char buf2[32];
-    ssize_t s;
+    char crashInput[4097];	//array for reading crashing input
+    int crlen;			//length of crahsing input
+    FILE* crash=fopen(inputs[0],"r");
+    if(crash==NULL){
+	perror("No file; exiting..\n");
+	exit(1);
+    }
+    crlen=fread(crashInput,sizeof(char),4096,crash);
     
+    if(crlen!=0){	//fread successful
+    	printf("length of crashing input: %d\n", crlen);
+	printf("content: %s\n", crashInput);
+	fclose(crash);
+    }
+    else{		//fread failed
+	if(ferror(crash)) perror("Error reading crashing input file\n");
+	else if(feof(crash)) perror("EOF found\n");
+    }
+
+    crashInput[crlen]='\0';
+
+    printf("check if input is printed\n");
+
+    ssize_t s;
+    char buf[1024];
+   
     child_pid=fork();
     if(child_pid<0){
     	perror("Fork Error");
 	exit(1);
     }
-    if(child_pid==0){  		//child process
-    	dup2(pipes[1],1); 	//standard output -> writing pipe
-	dup2(pipes[2],2);	//standard error -> error pipe
-	close(pipes[0]);	//close reading pipe
-	execl("./test","test","h","elloh",NULL);	//executing test in child process
+    if(child_pid==0){  			//child process
+	
+	close(pipes[0]);                //close reading pipe
+    	dup2(pipes[1],STDERR_FILENO); 	//standard error -> writing pipe
+
+	close(crin[1]);			//close writing pipe so it can read crashing input form pipe
+	dup2(crin[0],STDIN_FILENO);	//standard input -> reading pipe
+	
+	execv(inputs[3], tarArg);	//executing jsondump in child process
+	perror("execvp failed");
+	exit(1);
     }
-    wait(0x0);			//wait until the child process is done
-    close(pipes[1]);
-    close(pipes[2]); 		//close writing&reading pipe
+    else{				//parent process
+    	close(pipes[1]); 		//close writing pipe
+	close(crin[0]);			//close reading pipe to write crashing input to pipe
 
-    printf("1\n");
-    s=read(pipes[0],buf1,64);
-    buf1[s+1]=0x0;
-    printf(">%s\n",buf1);
+	int check=write(crin[1],crashInput,crlen+1);	//write crashing input to writing pipe of crin
+	if(check!=crlen+1) perror("write malfunctioning");
+	close(crin[1]);				//since writing to crin is done, close writing pipe
+	
+	int sum=0;
+    	while(sum<check){
+    	    s=read(pipes[0],buf,1023);
+	    sum+=s;
+	    buf[s+1]=0x0;
+    	    printf("stderr> %s",buf);
+	}
 
+	wait(0x0);			//wait until the child process is done
+    }
+
+   
     return 0;
 
 }
