@@ -9,15 +9,28 @@
 #include <sys/time.h>
 #include <signal.h>
 
+#ifdef DEBUG
+#define DPRINT(func) func;
+#else
+#define DPRINT(func);
+#endif
+
 //two pipes are needed => one for stderr, one for passing crashing input to the target program
 int pipes[2];
-int crin[2];
+//int crin[2]; <= the crashing input pipe is declared in each ExecutePrgm call
 //pipe[0]:standard input, pipe[1]:standard output
 
 
-bool ExecutePrgm(char* crash, char* prgm, char** param){
+bool ExecutePrgm(char* crash, char* prgm, char** param, char* errmsg){
+    int crin[2];
     ssize_t s;
     char buf[4096];
+
+    if(pipe(crin)!=0){
+        perror("Error(pipe generation)");
+        exit(1);
+    }
+    DPRINT(printf("2nd pipe(for crashing input) => reading pipe: %d, writing pipe: %d\n",crin[0],crin[1]); );
 
     pid_t child=fork();
     if(child<0) {
@@ -47,27 +60,29 @@ bool ExecutePrgm(char* crash, char* prgm, char** param){
 	close(crin[0]);			//close reading pipe to write crashing input to pipe
 
 	int check=write(crin[1]/*,crashInput,crlen+1*/,crash,strlen(crash)+1);	//write crashing input to writing pipe of crin
-	printf("written length of crash input: %d\n",check);
+	DPRINT( printf("written length of crash input: %d\n",check); );
 	if(check!=strlen(crash)+1/*crlen+1*/) perror("write malfunctioning");
 	close(crin[1]);				//since writing to crin is done, close writing pipe
 	
+	DPRINT( printf("From now on, parent will print out result of child\n"); );
     	while(s=read(pipes[0],buf,100)){	//read returns 0 if file is closed
     	    //s=read(pipes[0],buf,1023);
 	    buf[s+1]=0x0;
-    	    printf("> %s",buf);
-	}	
+    	    DPRINT( printf("%s",buf); ); 
+	}
 
-        int status;
-        wait(&status);
-        if(WEXITSTATUS(status) == 33){
-            //found the error string (crashes)
-            return true;
+	wait(0x0);
+        //int status;
+        //wait(&status);
+        //if(WEXITSTATUS(status) == 33){
+	if(strstr(buf, errmsg)!="\0"){	//found the error string (crashes)
+	     return true;
         }
         else return false;
     }
 }
 
-char* Reduce(char* crash, char* prgm, char** param){
+char* Reduce(char* crash, char* prgm, char** param, char* errmsg){
     int s = strlen(crash) - 1;
     char* head;
     char* mid;
@@ -91,9 +106,9 @@ char* Reduce(char* crash, char* prgm, char** param){
             
             //if the string with the problem is found, reduce it further
             //(crashes)
-            if(ExecutePrgm(head,prgm,param)) {
+            if(ExecutePrgm(head,prgm,param,errmsg)) {
                 printf("\nfound error string: %s...\nNow reducing further",head);
-                return Reduce(head,prgm,param);	
+                return Reduce(head,prgm,param,errmsg);	
             }
 
         }
@@ -104,10 +119,10 @@ char* Reduce(char* crash, char* prgm, char** param){
             mid[s] = '\0';
 
             //try to find the error string in the middle part
-            if(ExecutePrgm(mid,prgm,param)) 
+            if(ExecutePrgm(mid,prgm,param,errmsg)) 
             {
                 printf("\nfound error string: %s...\nNow reducing further",mid);
-                return Reduce(mid,prgm,param);
+                return Reduce(mid,prgm,param,errmsg);
             }
         }
         s--;
@@ -159,7 +174,7 @@ void InputAnalysis(int argc, int paramlen, char* argv[], char* returnArr[4], cha
 		tarArg[0]=returnArr[3];
 		for(int k=1; k<paramlen+1; k++){
 		    tarArg[k]=argv[i+k]; 	//storing parameters for target program
-		    printf("%s\n",tarArg[k]);
+		    DPRINT( printf("%s\n",tarArg[k]); );
 		}
 		i+=3;
 		tarArg[paramlen+1]=NULL;
@@ -194,29 +209,32 @@ int main(int argc, char* argv[]) {
     	perror("Error(pipe generation)");
 	exit(1);
     }
-    printf("1st pipe(for stderr) => reading pipe: %d, writing pipe: %d\n",pipes[0],pipes[1]);
+    DPRINT( printf("1st pipe(for stderr) => reading pipe: %d, writing pipe: %d\n",pipes[0],pipes[1]); );
 
+/*
     if(pipe(crin)!=0){
 	perror("Error(pipe generation)");
 	exit(1);
     }
     printf("2nd pipe(for crashing input) => reading pipe: %d, writing pipe: %d\n",crin[0],crin[1]);
+*/
+//since executePrgm runs recursively, it has to use pipe that is made in the each function call
 
     char* inputs[4] = { NULL, NULL, NULL, NULL };
     int paramlen=argc-8;
     char* tarArg[paramlen+2];
 
-    printf("argc: %d, parameter length: %d\n",argc,paramlen);
+    DPRINT( printf("argc: %d, parameter length: %d\n",argc,paramlen); );
     InputAnalysis(argc, paramlen, argv, inputs, tarArg);
 
-    printf("parameters of target program: ");
+    DPRINT( printf("parameters of target program: "); );
     for(int i=0;i<paramlen+1;i++){
-    	printf("%s, ",tarArg[i]);
+    	DPRINT( printf("%s, ",tarArg[i]); );
     }
-    printf("\n");
+    DPRINT( printf("\n"); );
 
-    printf("Input path: %s\nError String: %s\nOutput path: %s\nProgram to be executed: %s\n", inputs[0], inputs[1], inputs[2], inputs[3]);
-     
+    DPRINT( printf("Input path: %s\nError String: %s\nOutput path: %s\nProgram to be executed: %s\n", inputs[0], inputs[1], inputs[2], inputs[3]); );
+
      /* Reading Input File */
     char crashInput[4097];	//array for reading crashing input
     int crlen;			//length of crahsing input
@@ -229,7 +247,7 @@ int main(int argc, char* argv[]) {
     
     if(crlen!=0){	//fread successful
     	printf("length of crashing input: %d\n", crlen);
-        printf("content: %s\n", crashInput);
+        DPRINT( printf("content: %s\n", crashInput); );
         fclose(crash);
     }
     else{		//fread failed
@@ -239,11 +257,11 @@ int main(int argc, char* argv[]) {
 
     crashInput[crlen]='\0';
 
-    printf("check if input is printed\n");
+    DPRINT( printf("check if input is printed\n"); );
 
     //implemented in Execute_Prgm
     
-    
+/*    
     ssize_t s;
     char buf[1024];
 
@@ -282,13 +300,21 @@ int main(int argc, char* argv[]) {
 
 	wait(0x0);			//wait until the child process is done
     }
-    
-    
-    //printf("\n\nNow runnig by Reduce\n\n");
-    //Reduce(crashInput,inputs[3],tarArg);
+*/  
+    char result[4096];
+    DPRINT( printf("\n\nNow running by Reduce\n\n"); );
+    strcpy(result,Reduce(crashInput,inputs[3],tarArg,inputs[1]));
+    //int reslen=strlen(result);
+    //result[reslen]='\0';
+    printf("reduced crashing input is : %s\n",result);
 
-    //printf("\n\nNow runnig by ExecutePrgm\n\n");
-    //ExecutePrgm(crashInput,inputs[3],tarArg);
+/*
+    DPRINT( printf("\n\nNow running by ExecutePrgm\n\n"); );
+    bool res=ExecutePrgm(crashInput,inputs[3],tarArg,inputs[1]);
+    printf(res ? "true" : "false");
+    printf("\n");
+*/
+
     return 0;
 
 }
