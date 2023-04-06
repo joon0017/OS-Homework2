@@ -14,20 +14,49 @@ int pipes[2];
 int crin[2];
 //pipe[0]:standard input, pipe[1]:standard output
 
-bool ExecutePrgm(char* t, char* prgm){
+
+bool ExecutePrgm(char* crash, char* prgm, char** param){
+    ssize_t s;
+    char buf[4096];
+
     pid_t child=fork();
     if(child<0) {
         perror("Error(fork)");
         exit(1);
-    } else if (child == 0){
-        //child process
+    }
+    else if (child == 0){	 //child process
+	/*
         close(pipes[0]);	//close reading pipe
         dup2(pipes[1],1);	//redirect stdout to writing pipe
         close(pipes[1]);	//close writing pipe
         execvp(prgm,t); //run program
         exit(33);
-    } else{
-        //parent process
+	*/
+	close(crin[1]);			//close writing pipe so it can read crashing input form pipe
+	dup2(crin[0],STDIN_FILENO);	//standard input -> reading pipe
+	
+	close(pipes[0]);                //close reading pipe
+        dup2(pipes[1],STDERR_FILENO);   //standard error -> writing pipe
+	
+	execv(/*inputs[3], tarArg*/prgm,param);	//executing jsondump in child process
+	perror("execvp failed");
+	exit(/*1*/33);
+    }
+    else{		//parent process
+	close(pipes[1]); 		//close writing pipe
+	close(crin[0]);			//close reading pipe to write crashing input to pipe
+
+	int check=write(crin[1]/*,crashInput,crlen+1*/,crash,strlen(crash)+1);	//write crashing input to writing pipe of crin
+	printf("written length of crash input: %d\n",check);
+	if(check!=strlen(crash)+1/*crlen+1*/) perror("write malfunctioning");
+	close(crin[1]);				//since writing to crin is done, close writing pipe
+	
+    	while(s=read(pipes[0],buf,100)){	//read returns 0 if file is closed
+    	    //s=read(pipes[0],buf,1023);
+	    buf[s+1]=0x0;
+    	    printf("> %s",buf);
+	}	
+
         int status;
         wait(&status);
         if(WEXITSTATUS(status) == 33){
@@ -38,56 +67,59 @@ bool ExecutePrgm(char* t, char* prgm){
     }
 }
 
-char* Reduce(char* t, char* prgm){
-    int s = strlen(t) - 1;
+char* Reduce(char* crash, char* prgm, char** param){
+    int s = strlen(crash) - 1;
     char* head;
     char* mid;
     char* tail;
 
     while(s > 0){
-        for(int i = 0; i < strlen(t) - s - 1;i++){
+        for(int i = 0; i < strlen(crash) - s - 1;i++){
             //allocate memory for each part
             head = (char*)malloc(sizeof(char)*i+1);
-            tail = (char*)malloc(sizeof(char)*(strlen(t)-i-s)+1);
+            tail = (char*)malloc(sizeof(char)*(strlen(crash)-i-s)+1);
             
             //copy the substrings to each part
-            strncpy(head,t,i);
-            strncpy(tail,t+i+s,strlen(t)-i-s);
+            strncpy(head,crash,i);
+            strncpy(tail,crash+i+s,strlen(crash)-i-s);
 
             //foolproof method to make sure the strings are null terminated
             head[i] = '\0';
-            tail[strlen(t)-i-s] = '\0';
+            tail[strlen(crash)-i-s] = '\0';
 
             strcat(head,tail);	//concatenate head and tail
             
             //if the string with the problem is found, reduce it further
             //(crashes)
-            if(ExecutePrgm(head,prgm)) {
+            if(ExecutePrgm(head,prgm,param)) {
                 printf("\nfound error string: %s...\nNow reducing further",head);
-                return Reduce(head,prgm);	
+                return Reduce(head,prgm,param);	
             }
 
         }
-        for(int i = 0; i < strlen(t) - s - 1 ;i++){
+        for(int i = 0; i < strlen(crash) - s - 1 ;i++){
             //find middle part
             mid = (char*)malloc(sizeof(char)*s+1);
-            strncpy(mid,t+i,s);
+            strncpy(mid,crash+i,s);
             mid[s] = '\0';
 
             //try to find the error string in the middle part
-            if(ExecutePrgm(mid,prgm)) 
+            if(ExecutePrgm(mid,prgm,param)) 
             {
                 printf("\nfound error string: %s...\nNow reducing further",mid);
-                return Reduce(mid,prgm);
+                return Reduce(mid,prgm,param);
             }
         }
         s--;
     }
-    printf("\nFinished reducing. Error string is: %s\n",t);
-    return t;
+
+
+    printf("\nFinished reducing. Error string is: %s\n",mid);
+    return mid;
 }
 
-void InputAnalysis(int argc, int paramlen, char* argv[], char* returnArr[4], char* tarArg[paramlen]) {
+
+void InputAnalysis(int argc, int paramlen, char* argv[], char* returnArr[4], char* tarArg[paramlen+1]) {
     bool receivedParam = false;
     bool receivedProgram = false;
 
@@ -124,11 +156,13 @@ void InputAnalysis(int argc, int paramlen, char* argv[], char* returnArr[4], cha
             // Check if the current argument is an argument following a parameter
             if (!receivedProgram) {
                 returnArr[3] = argv[i];
-		for(int k=0; k<paramlen; k++){
-		    tarArg[k]=argv[i+k+1]; 	//storing parameters for target program
+		tarArg[0]=returnArr[3];
+		for(int k=1; k<paramlen+1; k++){
+		    tarArg[k]=argv[i+k]; 	//storing parameters for target program
+		    printf("%s\n",tarArg[k]);
 		}
 		i+=3;
-		tarArg[paramlen]=NULL;
+		tarArg[paramlen+1]=NULL;
                 receivedProgram = true;
             }
             receivedParam = false;
@@ -170,13 +204,13 @@ int main(int argc, char* argv[]) {
 
     char* inputs[4] = { NULL, NULL, NULL, NULL };
     int paramlen=argc-8;
-    char* tarArg[paramlen+1];
+    char* tarArg[paramlen+2];
 
     printf("argc: %d, parameter length: %d\n",argc,paramlen);
     InputAnalysis(argc, paramlen, argv, inputs, tarArg);
 
     printf("parameters of target program: ");
-    for(int i=0;i<paramlen;i++){
+    for(int i=0;i<paramlen+1;i++){
     	printf("%s, ",tarArg[i]);
     }
     printf("\n");
@@ -207,6 +241,9 @@ int main(int argc, char* argv[]) {
 
     printf("check if input is printed\n");
 
+    //implemented in Execute_Prgm
+    
+    
     ssize_t s;
     char buf[1024];
 
@@ -218,6 +255,9 @@ int main(int argc, char* argv[]) {
     if(child_pid==0){  			//child process
 	close(crin[1]);			//close writing pipe so it can read crashing input form pipe
 	dup2(crin[0],STDIN_FILENO);	//standard input -> reading pipe
+
+	//close(pipes[0]);		//close reading pipe
+	//dup2(pipes[1],STDERR_FILENO);	//standard error -> writing pipe
 	
 	execv(inputs[3], tarArg);	//executing jsondump in child process
 	perror("execvp failed");
@@ -228,21 +268,27 @@ int main(int argc, char* argv[]) {
 	close(crin[0]);			//close reading pipe to write crashing input to pipe
 
 	int check=write(crin[1],crashInput,crlen+1);	//write crashing input to writing pipe of crin
+	//printf("written length of crash input: %d\n",check);
 	if(check!=crlen+1) perror("write malfunctioning");
 	close(crin[1]);				//since writing to crin is done, close writing pipe
 	
-	int sum=0;
-    	while(sum<check){
-    	    s=read(pipes[0],buf,1023);
-	    sum+=s;
+	
+    	while(s=read(pipes[0],buf,1023)){	//read returns 0 if file is closed
+    	    //s=read(pipes[0],buf,1023);
+	    //sum+=s;
 	    buf[s+1]=0x0;
-    	    printf("stderr> %s",buf);
+    	    printf(" stderr> %s",buf);
 	}
 
 	wait(0x0);			//wait until the child process is done
     }
+    
+    
+    //printf("\n\nNow runnig by Reduce\n\n");
+    //Reduce(crashInput,inputs[3],tarArg);
 
-   
+    //printf("\n\nNow runnig by ExecutePrgm\n\n");
+    //ExecutePrgm(crashInput,inputs[3],tarArg);
     return 0;
 
 }
