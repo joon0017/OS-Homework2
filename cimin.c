@@ -76,9 +76,11 @@ bool ExecutePrgm(char* crash, char* prgm, char** param, char* errmsg){
         //wait(&status);
         //if(WEXITSTATUS(status) == 33){
 	if(strstr(buf, errmsg)!="\0"){	//found the error string (crashes)
+	     DPRINT( printf("true\n"); );
 	     return true;
         }
         else return false;
+	DPRINT( printf("false\n"); );
     }
 }
 
