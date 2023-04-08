@@ -18,6 +18,7 @@
 bool checkloop;                 //global variable for checking infinite loop
 bool running;                   //global variable for checking if child is finished or not
 pid_t child;                    //global variable for fork() and timeout()
+int count=0;                      //global variable for counting total crashes
 
 //two pipes are needed => one for stderr, one for passing crashing input to the target program
 //int pipes[2];
@@ -106,13 +107,14 @@ bool ExecutePrgm(char* crash, char* prgm, char** param, char* errmsg){
         wait(0x0);          //wait for child process to be done
         running=false;      //indicates that child process is finished
 
-        if(out[0]=='\0') return false;
+        //if(out[0]=='\0') return false;
             //int status;
             //wait(&status);
             //if(WEXITSTATUS(status) == 33){
         DPRINT( printf("\nerrmsg: %s\n",errmsg); );
         char* result=strstr(out,errmsg);
         if((result!=NULL)||checkloop){	//found the error string (crashes)
+            count++;
             DPRINT( printf("true\n"); );
             return true;
         }
@@ -194,6 +196,7 @@ char* Reduce(char* crashInput, char* prgm, char** param, char* errmsg){
 
 
     printf("\nfound error string: %s\n",crashInput);
+    printf("\ntotal crash occurred: %d\n", count);
     return crashInput;
 }
 
@@ -361,7 +364,7 @@ int main(int argc, char* argv[]) {
 
     char result[4096];
     DPRINT( printf("\n\nNow running by Reduce\n\n"); );
-    strcpy(result,Reduce(crashInput,inputs[3],tarArg,inputs[1]));
+    strncpy(result,Reduce(crashInput,inputs[3],tarArg,inputs[1]),crlen);
     //int reslen=strlen(result);
     //result[reslen]='\0';
     printf("reduced crashing input is : %s\n",result);
