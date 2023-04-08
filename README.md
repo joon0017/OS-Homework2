@@ -20,7 +20,7 @@ CIMIN is a program that minimizes the given input that makes the target program 
 
 
 
-# Usage
+## Preprocess
 
 clone this repository using:
 ```
@@ -29,24 +29,34 @@ $ git clone https://github.com/joon0017/OS-Homework2
 
 There will be some executable files exisisting. Those are examples that can be run with CIMIN.
 
-Since there is no executable file for cimin.c, you must compile by using makefile. There are two options provided : original CIMIN, and debugging mode CIMIN which prints out all the details.
+Since there is no executable file for `cimin.c`, you must compile by using makefile. There are two options provided : original CIMIN, and debugging mode CIMIN which prints out all the details.
 
 1. Original CIMIN
-```
-$ make
-```
-In this way, ordinary CIMIN will be compiled, and its name will be 'cimin'.
+>```
+>$ make
+>```
+>In this way, ordinary CIMIN will be compiled, and its name will be `cimin`.
 
 2. debugging mode CIMIN
-```
-$ make -f make.debug
-```
-In this way, CIMIN that prints out all the details will be compiled as 'cimin_debug'
+>```
+>$ make -f make.debug
+>```
+>In this way, CIMIN that prints out all the details will be compiled as `cimin_debug`  
 
+
+If you want to remove executable files, use
+```
+$ make clean
+```
+to clear files for original CIMIN, and use
+```
+$ make -f make.debug clean
+```
+for wiping out `cimin_debug`.
 
 ---
 
-### CIMIN
+## To run CIMIN
 This is the main program of this assignment. The basic usage is:
 
 ```
@@ -54,20 +64,24 @@ This is the main program of this assignment. The basic usage is:
 ```
 Arguments inside [] as well as all flags are needed to run the program.
 
-- -i inputPath: The file path of the crashing input (i.e., the subject of the reduction)
-- -m errorString: A string whose appearance in standard error determines whether the expected crash occurs or not
-- -o outputPath: A new file path to store the reduced crashing input
-- programToRun: The file path to the executable binary of the target program
+- -i [inputPath]: The file path of the crashing input (i.e., the subject of the reduction)    
+
+- -m [errorString]: A string whose appearance in standard error determines whether the expected crash occurs or not   
+
+- -o [outputPath]: A new file path to store the reduced crashing input   
+
+- programToRun: The file path to the executable binary of the target program   d
+
 
 The order of the three options doesn't matter if and only if you had put all the options.
 
-### test
-This is the debug tool we used to simplify the building process of cimin. The basic usage is:
+## Example usage
+*   For `jsondump`, its crashing input is `crash.json`, and the crash can be indicated by `"heap-buffer-overflow"`. Since it does not require any parameter for running, the command line input will be :
+> ```
+>$ ./cimin -i crash.json -m "heap-buffer-overflow" -o reduced_crash.json jsondump
+>``` 
+> When `cimin` is done, the shortened version of crashing input will be stored in file named `reduced_crash.json`. All the other examples could be run in this way.
 
-```
-./test [Error String] [String]
-```
-Arguments inside [] are necessary for the program to run without troubles.
+* For `xmllint`, crashing input is `crash.xml`, and it identifies crash with `"AddressSanitizer: SEGV on unknown address"`. In this case, it requires parameters for `xmllint` which are `--recover --postvalid -`. Make sure you put all the parameters, or you will get wrong result.
 
-- [Error String]: The sequence of characters to look for
-- [String]: The string where the program will look for the error string.
+* For `balance`, crashing input is `fail`, and since it falls into infinte loop when chashed, it does not generate any error message. So the error detecting message can be anything. `cimin` detects this case by signal handling. 
