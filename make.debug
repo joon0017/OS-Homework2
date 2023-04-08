@@ -1,9 +1,9 @@
 C = gcc
-CFLAGS = -g -D_POSIX_C_SOURCE -Wall -std=c11
+CFLAGS = -g -D_POSIX_C_SOURCE -Wall -std=c11 -DDEBUG
 
 SRCS = cimin.c
 OBJS = $(SRCS:.c=.o)
-EXE1 = cimin
+EXE1 = cimin_debug
 
 $(EXE1): $(OBJS)
 	$(C) -o $@ $^
