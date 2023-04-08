@@ -15,16 +15,38 @@
 #define DPRINT(func);
 #endif
 
+bool checkloop;                 //global variable for checking infinite loop
+bool running;                   //global variable for checking if child is finished or not
+pid_t child;                    //global variable for fork() and timeout()
+
 //two pipes are needed => one for stderr, one for passing crashing input to the target program
-int pipes[2];
+//int pipes[2];
 //int crin[2]; <= the crashing input pipe is declared in each ExecutePrgm call
 //pipe[0]:standard input, pipe[1]:standard output
 
+void timeout(int sig);
+void terminate(int sig);
 
 bool ExecutePrgm(char* crash, char* prgm, char** param, char* errmsg){
-    int crin[2];
-    ssize_t s;
-    char buf[4096];
+    printf(" %s \n", crash);
+    checkloop=false;
+
+    int pipes[2];
+    int crin[2]; 
+    
+    ssize_t s; 
+    char out[4096];
+    char buf[100];  
+
+    signal(SIGINT,terminate);   //when SIGINT, calls terminate to exit
+    signal(SIGALRM,timeout);    //when SIGALRM, calls timeout to exit
+    alarm(3);
+
+    if(pipe(pipes)!=0){
+        perror("Error(pipe generation)");
+        exit(1);
+    }
+    DPRINT( printf("1st pipe(for stderr) => reading pipe: %d, writing pipe: %d\n",pipes[0],pipes[1]); );
 
     if(pipe(crin)!=0){
         perror("Error(pipe generation)");
@@ -32,92 +54,132 @@ bool ExecutePrgm(char* crash, char* prgm, char** param, char* errmsg){
     }
     DPRINT(printf("2nd pipe(for crashing input) => reading pipe: %d, writing pipe: %d\n",crin[0],crin[1]); );
 
-    pid_t child=fork();
+    child=fork();
+    running=true;              //child is running
+
     if(child<0) {
         perror("Error(fork)");
         exit(1);
     }
-    else if (child == 0){	 //child process
-	/*
-        close(pipes[0]);	//close reading pipe
-        dup2(pipes[1],1);	//redirect stdout to writing pipe
-        close(pipes[1]);	//close writing pipe
-        execvp(prgm,t); //run program
-        exit(33);
-	*/
-	close(crin[1]);			//close writing pipe so it can read crashing input form pipe
-	dup2(crin[0],STDIN_FILENO);	//standard input -> reading pipe
-	
-	close(pipes[0]);                //close reading pipe
+    else if (child == 0){	    //child process
+        /*
+            close(pipes[0]);	//close reading pipe
+            dup2(pipes[1],1);	//redirect stdout to writing pipe
+            close(pipes[1]);	//close writing pipe
+            execvp(prgm,t);     //run program
+            exit(33);
+        */
+        close(crin[1]);			    //close writing pipe so it can read crashing input form pipe
+        dup2(crin[0],STDIN_FILENO);	//standard input -> reading pipe
+        
+        close(pipes[0]);                //close reading pipe
         dup2(pipes[1],STDERR_FILENO);   //standard error -> writing pipe
-	
-	execv(/*inputs[3], tarArg*/prgm,param);	//executing jsondump in child process
-	perror("execvp failed");
-	exit(/*1*/33);
+        close(STDOUT_FILENO);
+        execv(/*inputs[3], tarArg*/prgm,param);	//executing jsondump in child process
+        perror("execvp failed");
+        exit(/*1*/33);
     }
     else{		//parent process
-	close(pipes[1]); 		//close writing pipe
-	close(crin[0]);			//close reading pipe to write crashing input to pipe
+        close(pipes[1]); 		//close writing pipe
+        close(crin[0]);			//close reading pipe to write crashing input to pipe
 
-	int check=write(crin[1]/*,crashInput,crlen+1*/,crash,strlen(crash)+1);	//write crashing input to writing pipe of crin
-	DPRINT( printf("written length of crash input: %d\n",check); );
-	if(check!=strlen(crash)+1/*crlen+1*/) perror("write malfunctioning");
-	close(crin[1]);				//since writing to crin is done, close writing pipe
-	
-	DPRINT( printf("From now on, parent will print out result of child\n"); );
-    	while(s=read(pipes[0],buf,100)){	//read returns 0 if file is closed
-    	    //s=read(pipes[0],buf,1023);
-	    buf[s+1]=0x0;
-    	    DPRINT( printf("%s",buf); ); 
-	}
-
-	wait(0x0);
-        //int status;
-        //wait(&status);
-        //if(WEXITSTATUS(status) == 33){
-	if(strstr(buf, errmsg)!="\0"){	//found the error string (crashes)
-	     DPRINT( printf("true\n"); );
-	     return true;
+        int check=write(crin[1]/*,crashInput,crlen+1*/,crash,strlen(crash)+1);	//write crashing input to writing pipe of crin
+        DPRINT( printf("written length of crash input: %d\n",check); );
+        if(check!=strlen(crash)+1/*crlen+1*/) perror("write malfunctioning");
+        close(crin[1]);				//since writing to crin is done, close writing pipe
+        
+        DPRINT( printf("From now on, parent will print out result of child\n"); );
+        int sum=0;
+        while(s=read(pipes[0],buf,100)){	//read returns 0 if file is closed
+            sum+=s;
+            //out[sum]=0x0;
+            strncat(out,buf,100);
+            out[sum]=0x0;
         }
-        else return false;
-	DPRINT( printf("false\n"); );
+        
+        close(pipes[0]);
+
+        DPRINT( printf("length of output: %d\n",sum); );
+        out[sum]=0x0;
+        DPRINT( printf("output:\n%s",out); );
+
+        wait(0x0);          //wait for child process to be done
+        running=false;      //indicates that child process is finished
+
+        if(out[0]=='\0') return false;
+            //int status;
+            //wait(&status);
+            //if(WEXITSTATUS(status) == 33){
+        DPRINT( printf("\nerrmsg: %s\n",errmsg); );
+        char* result=strstr(out,errmsg);
+        if((result!=NULL)||checkloop){	//found the error string (crashes)
+            DPRINT( printf("true\n"); );
+            return true;
+        }
+        else{
+            DPRINT( printf("false\n"); );
+            return false;
+        }
     }
 }
 
-char* Reduce(char* crash, char* prgm, char** param, char* errmsg){
-    int s = strlen(crash) - 1;
-    char* head;
-    char* mid;
-    char* tail;
+char* Reduce(char* crashInput, char* prgm, char** param, char* errmsg){
+    int len=strlen(crashInput);
+    int s = len - 1;
+    //char* crash = crashInput;    
+    char head[len];
+    char mid[len];
+    char tail[len];
 
     while(s > 0){
-        for(int i = 0; i < strlen(crash) - s - 1;i++){
+        printf("\nhead&tail\n");
+        for(int i = 0; i < len-s+1; i++){
             //allocate memory for each part
-            head = (char*)malloc(sizeof(char)*i+1);
-            tail = (char*)malloc(sizeof(char)*(strlen(crash)-i-s)+1);
+            //head = (char*)malloc(sizeof(char)*i);
+            //tail = (char*)malloc(sizeof(char)*(strlen(crash)-i-s)+1);
             
+	    
             //copy the substrings to each part
-            strncpy(head,crash,i);
-            strncpy(tail,crash+i+s,strlen(crash)-i-s);
+            // if(i-1<0){
+            //     head[0]='\0';		//check for empty string
+            // }
+            // else{
+            //     strncpy(head,crashInput,i); // i+1이 아니라 i
 
-            //foolproof method to make sure the strings are null terminated
+            //     head[i+1] = '\0';
+            // }
+            
+            // if(i+s>len-1){
+            //     tail[0]='\0';
+            // }
+            // else{
+            //     strncpy(tail,crashInput+i+s,len-s-i);
+            //     tail[len-s-i]='\0';
+            // }
+
+            strncpy(head,crashInput,i); // i+1이 아니라 i
             head[i] = '\0';
-            tail[strlen(crash)-i-s] = '\0';
 
-            strcat(head,tail);	//concatenate head and tail
+            strncpy(tail,crashInput+i+s,len-s-i);
+            tail[len-s-i]='\0';
+
+            //strcat(head,tail);	//concatenate head and tail
             
             //if the string with the problem is found, reduce it further
             //(crashes)
-            if(ExecutePrgm(head,prgm,param,errmsg)) {
-                printf("\nfound error string: %s...\nNow reducing further",head);
-                return Reduce(head,prgm,param,errmsg);	
+            if(ExecutePrgm(strcat(head,tail),prgm,param,errmsg)) {
+                printf("\nfound error string: %s...\nNow reducing further",strcat(head,tail));
+                return Reduce(strcat(head,tail),prgm,param,errmsg);	
             }
 
         }
-        for(int i = 0; i < strlen(crash) - s - 1 ;i++){
+        
+        printf("\nmid\n");
+        for(int i = 0; i < len - s ;i++){
+	        
             //find middle part
-            mid = (char*)malloc(sizeof(char)*s+1);
-            strncpy(mid,crash+i,s);
+            //mid = (char*)malloc(sizeof(char)*s+1);
+            strncpy(mid,crashInput+i,s);
             mid[s] = '\0';
 
             //try to find the error string in the middle part
@@ -131,8 +193,8 @@ char* Reduce(char* crash, char* prgm, char** param, char* errmsg){
     }
 
 
-    printf("\nFinished reducing. Error string is: %s\n",mid);
-    return mid;
+    printf("\nfound error string: %s\n",crashInput);
+    return crashInput;
 }
 
 
@@ -173,13 +235,13 @@ void InputAnalysis(int argc, int paramlen, char* argv[], char* returnArr[4], cha
             // Check if the current argument is an argument following a parameter
             if (!receivedProgram) {
                 returnArr[3] = argv[i];
-		tarArg[0]=returnArr[3];
-		for(int k=1; k<paramlen+1; k++){
-		    tarArg[k]=argv[i+k]; 	//storing parameters for target program
-		    DPRINT( printf("%s\n",tarArg[k]); );
-		}
-		i+=3;
-		tarArg[paramlen+1]=NULL;
+                tarArg[0]=returnArr[3];
+                for(int k=1; k<paramlen+1; k++){
+                    tarArg[k]=argv[i+k]; 	//storing parameters for target program
+                    DPRINT( printf("%s\n",tarArg[k]); );
+                }
+                i+=3;
+                tarArg[paramlen+1]=NULL;
                 receivedProgram = true;
             }
             receivedParam = false;
@@ -193,7 +255,16 @@ void InputAnalysis(int argc, int paramlen, char* argv[], char* returnArr[4], cha
 
 void timeout(int sig) {	//when SIGALRM(timeout) happens
     if(sig==SIGALRM) puts("Time out!");
-    exit(0);
+    //when timeout is detected, child process has to be killed since it falls into infinite loop
+    //instead, checkloop is changed to true to let parent know whether it crashes or not
+    checkloop=true;
+
+    //since we have boolean variable 'running' for the status of child process
+    // -> if running is false, it means that child process is still running when signalled.
+    //so, we have to kill the running child for the cimin to proceed.
+    if(running){
+        kill(child,SIGKILL);        //kill running child using current child's pid
+    }
 }
 void terminate(int sig) { //when SIGINT(control+c) happens
     if(sig==SIGINT) printf("\nCTRL+C is pressed!\nexit process..\n");
@@ -201,26 +272,10 @@ void terminate(int sig) { //when SIGINT(control+c) happens
 }
 
 int main(int argc, char* argv[]) {
-    pid_t child_pid;
 
     signal(SIGINT,terminate);	//when SIGINT, calls terminate to exit
-    signal(SIGALRM,timeout);	//when SIGALRM, calls timeout to exit
-    alarm(3);
 
-    if(pipe(pipes)!=0){
-    	perror("Error(pipe generation)");
-	exit(1);
-    }
-    DPRINT( printf("1st pipe(for stderr) => reading pipe: %d, writing pipe: %d\n",pipes[0],pipes[1]); );
-
-/*
-    if(pipe(crin)!=0){
-	perror("Error(pipe generation)");
-	exit(1);
-    }
-    printf("2nd pipe(for crashing input) => reading pipe: %d, writing pipe: %d\n",crin[0],crin[1]);
-*/
-//since executePrgm runs recursively, it has to use pipe that is made in the each function call
+    //since executePrgm runs recursively, it has to use pipe that is made in the each function call
 
     char* inputs[4] = { NULL, NULL, NULL, NULL };
     int paramlen=argc-8;
@@ -303,6 +358,7 @@ int main(int argc, char* argv[]) {
 	wait(0x0);			//wait until the child process is done
     }
 */  
+
     char result[4096];
     DPRINT( printf("\n\nNow running by Reduce\n\n"); );
     strcpy(result,Reduce(crashInput,inputs[3],tarArg,inputs[1]));
@@ -313,9 +369,19 @@ int main(int argc, char* argv[]) {
 /*
     DPRINT( printf("\n\nNow running by ExecutePrgm\n\n"); );
     bool res=ExecutePrgm(crashInput,inputs[3],tarArg,inputs[1]);
+    printf("result of ExecutePrgm: ");
     printf(res ? "true" : "false");
     printf("\n");
 */
+
+    //need to store reduced crashing output to new file(inputs[2])
+    FILE* store=fopen(inputs[2],"w");
+    if(!store) {
+        perror("error when writing to file");
+        exit(1);
+    }
+    fprintf(store,"%s",result);
+    fclose(store);
 
     return 0;
 
