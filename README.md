@@ -6,7 +6,7 @@ This is the repository for HW2 of Operating System class.
 
 ---
 
-### Team Nembers:
+### Team Members:
 - 김 성 민
 - 21900112
 ---
@@ -14,24 +14,39 @@ This is the repository for HW2 of Operating System class.
 - 21900699
 
 ---
+
+# CIMIN: Crashing Input Minimizer
+CIMIN is a program that minimizes the given input that makes the target program crash. By using delta debugging algorithm, CIMIN checkes if the input causes crash of the target program and reduces it as short as possible. In this way, we can identify what certain input makes the target program fail.
+
+
+
 # Usage
 
 clone this repository using:
 ```
-git clone https://github.com/joon0017/OS-Homework2
+$ git clone https://github.com/joon0017/OS-Homework2
 ```
 
-compile using a gcc:
+There will be some executable files exisisting. Those are examples that can be run with CIMIN.
+
+Since there is no executable file for cimin.c, you must compile by using makefile. There are two options provided : original CIMIN, and debugging mode CIMIN which prints out all the details.
+
+1. Original CIMIN
 ```
-make
+$ make
 ```
-This will create 2 executable files
-- cimin
-- test
+In this way, ordinary CIMIN will be compiled, and its name will be 'cimin'.
+
+2. debugging mode CIMIN
+```
+$ make -f make.debug
+```
+In this way, CIMIN that prints out all the details will be compiled as 'cimin_debug'
+
 
 ---
 
-### cimin
+### CIMIN
 This is the main program of this assignment. The basic usage is:
 
 ```
@@ -39,10 +54,12 @@ This is the main program of this assignment. The basic usage is:
 ```
 Arguments inside [] as well as all flags are needed to run the program.
 
-- -i inputPath: The file path of the crashing input (i.e., the subject of the reduction
+- -i inputPath: The file path of the crashing input (i.e., the subject of the reduction)
 - -m errorString: A string whose appearance in standard error determines whether the expected crash occurs or not
 - -o outputPath: A new file path to store the reduced crashing input
 - programToRun: The file path to the executable binary of the target program
+
+The order of the three options doesn't matter if and only if you had put all the options.
 
 ### test
 This is the debug tool we used to simplify the building process of cimin. The basic usage is:
