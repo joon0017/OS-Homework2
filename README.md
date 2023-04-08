@@ -54,7 +54,6 @@ $ make -f make.debug clean
 ```
 for wiping out `cimin_debug`.
 
----
 
 ## To run CIMIN
 This is the main program of this assignment. The basic usage is:
@@ -70,7 +69,7 @@ Arguments inside [] as well as all flags are needed to run the program.
 
 - -o [outputPath]: A new file path to store the reduced crashing input   
 
-- programToRun: The file path to the executable binary of the target program   d
+- programToRun: The file path to the executable binary of the target program 
 
 
 The order of the three options doesn't matter if and only if you had put all the options.
@@ -85,3 +84,10 @@ The order of the three options doesn't matter if and only if you had put all the
 * For `xmllint`, crashing input is `crash.xml`, and it identifies crash with `"AddressSanitizer: SEGV on unknown address"`. In this case, it requires parameters for `xmllint` which are `--recover --postvalid -`. Make sure you put all the parameters, or you will get wrong result.
 
 * For `balance`, crashing input is `fail`, and since it falls into infinte loop when chashed, it does not generate any error message. So the error detecting message can be anything. `cimin` detects this case by signal handling. 
+
+ * For `test_pngfix`, crashing input is `crash.png`, and the error message to identify crash is `"WARNING: MemorySanitizer"`. 
+
+## Tips
+if you press `ctrl+c`, `cimin` will stop and save the result so far to the output file.
+
+---
