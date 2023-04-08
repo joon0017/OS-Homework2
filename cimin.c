@@ -91,7 +91,7 @@ bool ExecutePrgm(char* crash, char* prgm, char** param, char* errmsg){
         
         DPRINT( printf("From now on, parent will print out result of child\n"); );
         int sum=0;
-        while(s=read(pipes[0],buf,100)){	//read returns 0 if file is closed
+        while((s=read(pipes[0],buf,100))){	//read returns 0 if file is closed
             sum+=s;
             //out[sum]=0x0;
             strncat(out,buf,100);
@@ -202,7 +202,7 @@ char* Reduce(char* crashInput, char* prgm, char** param, char* errmsg){
 
 
 void InputAnalysis(int argc, int paramlen, char* argv[], char* returnArr[4], char* tarArg[paramlen+1]) {
-    bool receivedParam = false;
+    //bool receivedParam = false;
     bool receivedProgram = false;
 
     if (argc < 7) {
@@ -211,8 +211,9 @@ void InputAnalysis(int argc, int paramlen, char* argv[], char* returnArr[4], cha
     }
 
     for (int i = 1; i < argc; i++) {
+        DPRINT( printf("index: %d\n",i); );
         if (argv[i][0] == '-') {
-            receivedParam = true;
+            //receivedParam = true;
             if (i + 1 >= argc) {
                 printf("Missing argument for %s parameter.\n", argv[i]);
                 exit(1);
@@ -243,11 +244,11 @@ void InputAnalysis(int argc, int paramlen, char* argv[], char* returnArr[4], cha
                     tarArg[k]=argv[i+k]; 	//storing parameters for target program
                     DPRINT( printf("%s\n",tarArg[k]); );
                 }
-                i+=3;
+                i+=paramlen;
                 tarArg[paramlen+1]=NULL;
                 receivedProgram = true;
             }
-            receivedParam = false;
+            //receivedParam = false;
         }
     }
     if (returnArr[3]==NULL){
@@ -360,7 +361,7 @@ int main(int argc, char* argv[]) {
 
 	wait(0x0);			//wait until the child process is done
     }
-*/  
+*/
 
     char result[4096];
     DPRINT( printf("\n\nNow running by Reduce\n\n"); );
@@ -368,14 +369,6 @@ int main(int argc, char* argv[]) {
     //int reslen=strlen(result);
     //result[reslen]='\0';
     printf("reduced crashing input is : %s\n",result);
-
-/*
-    DPRINT( printf("\n\nNow running by ExecutePrgm\n\n"); );
-    bool res=ExecutePrgm(crashInput,inputs[3],tarArg,inputs[1]);
-    printf("result of ExecutePrgm: ");
-    printf(res ? "true" : "false");
-    printf("\n");
-*/
 
     //need to store reduced crashing output to new file(inputs[2])
     FILE* store=fopen(inputs[2],"w");
@@ -385,6 +378,14 @@ int main(int argc, char* argv[]) {
     }
     fprintf(store,"%s",result);
     fclose(store);
+
+/*
+    DPRINT( printf("\n\nNow running by ExecutePrgm\n\n"); );
+    bool res=ExecutePrgm(crashInput,inputs[3],tarArg,inputs[1]);
+    printf("result of ExecutePrgm: ");
+    printf(res ? "true" : "false");
+    printf("\n");
+*/
 
     return 0;
 
