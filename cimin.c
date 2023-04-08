@@ -16,6 +16,7 @@
 #endif
 
 bool checkloop;                 //global variable for checking infinite loop
+bool ctrlc=false;               //global variable for checking if ctrl+c is pressed
 bool running;                   //global variable for checking if child is finished or not
 pid_t child;                    //global variable for fork() and timeout()
 int count=0;                      //global variable for counting total crashes
@@ -39,8 +40,8 @@ bool ExecutePrgm(char* crash, char* prgm, char** param, char* errmsg){
     char out[4096];
     char buf[100];  
 
-    signal(SIGINT,terminate);   //when SIGINT, calls terminate to exit
-    signal(SIGALRM,timeout);    //when SIGALRM, calls timeout to exit
+    signal(SIGINT,terminate);   //when SIGINT, calls terminate handling function
+    signal(SIGALRM,timeout);    //when SIGALRM, calls timeout handling function
     alarm(3);
 
     if(pipe(pipes)!=0){
@@ -103,6 +104,8 @@ bool ExecutePrgm(char* crash, char* prgm, char** param, char* errmsg){
         DPRINT( printf("length of output: %d\n",sum); );
         out[sum]=0x0;
         DPRINT( printf("output:\n%s",out); );
+
+        if(ctrlc) return false;
 
         wait(0x0);          //wait for child process to be done
         running=false;      //indicates that child process is finished
@@ -173,6 +176,7 @@ char* Reduce(char* crashInput, char* prgm, char** param, char* errmsg){
                 printf("\nfound error string: %s...\nNow reducing further",strcat(head,tail));
                 return Reduce(strcat(head,tail),prgm,param,errmsg);	
             }
+            if(ctrlc) return crashInput;
 
         }
         
@@ -190,6 +194,7 @@ char* Reduce(char* crashInput, char* prgm, char** param, char* errmsg){
                 printf("\nfound error string: %s...\nNow reducing further",mid);
                 return Reduce(mid,prgm,param,errmsg);
             }
+            if(ctrlc) return crashInput;
         }
         s--;
     }
@@ -272,7 +277,12 @@ void timeout(int sig) {	//when SIGALRM(timeout) happens
 }
 void terminate(int sig) { //when SIGINT(control+c) happens
     if(sig==SIGINT) printf("\nCTRL+C is pressed!\nexit process..\n");
-    exit(0);
+    //sets ctrlc to true since ctrl+c is pressed
+    ctrlc=true;
+    //since it has to exit, this case also needs to kill child if it is currently running
+    if(running){
+        kill(child,SIGKILL);
+    }
 }
 
 int main(int argc, char* argv[]) {
